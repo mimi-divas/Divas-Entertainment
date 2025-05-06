@@ -1,0 +1,382 @@
+--[[ Line 1 - 20 ]]--
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local function generateRandomName()
+	local names = {"Luna", "Kai", "Nova", "Ash", "Rex", "Miko"}
+	return names[math.random(1, #names)]
+end
+
+local function createNPC()
+	local npc = Instance.new("Model")
+	npc.Name = generateRandomName()
+	local head = Instance.new("Part")
+	head.Name = "Head"
+	head.Size = Vector3.new(2, 1, 2)
+	head.Position = Vector3.new(math.random(-50,50), 5, math.random(-50,50))
+	head.Parent = npc
+	npc.PrimaryPart = head
+	npc.Parent = workspace
+end
+
+--[[ Line 21 - 40 ]]--
+for i = 1, 20 do
+	createNPC()
+end
+
+local playerStats = {}
+local function initPlayer(player)
+	playerStats[player.UserId] = {
+		Health = 100,
+		Money = 0,
+		Inventory = {},
+	}
+end
+
+Players.PlayerAdded:Connect(initPlayer)
+
+--[[ Line 41 - 60 ]]--
+local function damagePlayer(player, amount)
+	if playerStats[player.UserId] then
+		playerStats[player.UserId].Health = math.max(0, playerStats[player.UserId].Health - amount)
+	end
+end
+
+local function rewardPlayer(player, coins)
+	if playerStats[player.UserId] then
+		playerStats[player.UserId].Money += coins
+	end
+end
+
+--[[ Line 61 - 80 ]]--
+local function createHealthBar(player)
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "HealthUI"
+	gui.Parent = player:WaitForChild("PlayerGui")
+	local bar = Instance.new("Frame")
+	bar.Size = UDim2.new(0.3, 0, 0.05, 0)
+	bar.Position = UDim2.new(0.35, 0, 0.9, 0)
+	bar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+	bar.Name = "HealthBar"
+	bar.Parent = gui
+end
+
+Players.PlayerAdded:Connect(function(plr)
+	wait(1)
+	createHealthBar(plr)
+end)
+
+--[[ Line 81 - 100 ]]--
+local function randomEnemyAttack()
+	for _, player in pairs(Players:GetPlayers()) do
+		if math.random(1, 3) == 1 then
+			damagePlayer(player, math.random(5, 15))
+		end
+	end
+end
+
+while true do
+	wait(10)
+	randomEnemyAttack()
+end
+
+--[[ Line 101 - 120 ]]--
+local swordTool = Instance.new("Tool")
+swordTool.Name = "FierceBlade"
+swordTool.RequiresHandle = false
+swordTool.CanBeDropped = true
+
+local function onActivated(player)
+	rewardPlayer(player, 10)
+end
+
+swordTool.Activated:Connect(function()
+	local player = Players:GetPlayerFromCharacter(swordTool.Parent)
+	if player then
+		onActivated(player)
+	end
+end)
+
+--[[ Line 121 - 140 ]]--
+local function makeFloatingText(position, message)
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.CanCollide = false
+	part.Position = position
+	part.Size = Vector3.new(2, 1, 2)
+	part.Transparency = 1
+	part.Parent = workspace
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.new(0, 200, 0, 50)
+	billboard.Adornee = part
+	billboard.Parent = part
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.Text = message
+	label.TextColor3 = Color3.new(1, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Parent = billboard
+
+	game:GetService("Debris"):AddItem(part, 2)
+end
+
+--[[ Line 141 - 160 ]]--
+local function setupLeaderstats(player)
+	local stats = Instance.new("Folder")
+	stats.Name = "leaderstats"
+	stats.Parent = player
+
+	local money = Instance.new("IntValue")
+	money.Name = "Money"
+	money.Value = 0
+	money.Parent = stats
+
+	local level = Instance.new("IntValue")
+	level.Name = "Level"
+	level.Value = 1
+	level.Parent = stats
+end
+
+Players.PlayerAdded:Connect(setupLeaderstats)
+
+--[[ Line 161 - 180 ]]--
+local function animateJumpingNPC(npc)
+	local jumpTween = TweenService:Create(
+		npc.PrimaryPart,
+		TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out),
+		{Position = npc.PrimaryPart.Position + Vector3.new(0, 5, 0)}
+	)
+	jumpTween:Play()
+end
+
+-- Just animate one random NPC for now
+wait(3)
+for _, npc in ipairs(workspace:GetChildren()) do
+	if npc:IsA("Model") and npc.PrimaryPart then
+		animateJumpingNPC(npc)
+	end
+end
+
+--[[ Line 181 - 200 ]]--
+-- Fake chat system
+local chatMessages = {
+	"OMG hi bestie!",
+	"Where's the glam shop?",
+	"Did you see her outfit??",
+	"I'm getting rich today 💅",
+}
+
+function randomChat()
+	for _, player in ipairs(Players:GetPlayers()) do
+		local message = chatMessages[math.random(1, #chatMessages)]
+		makeFloatingText(player.Character.HumanoidRootPart.Position + Vector3.new(0, 5, 0), message)
+	end
+end
+
+game:GetService("RunService").Heartbeat:Connect(function(step)
+	if math.random() < 0.01 then
+		randomChat()
+	end
+end)
+--[[ Line 301 - 320 ]]--
+local InventoryModule = {}
+
+function InventoryModule:AddItem(player, itemName)
+	local inventory = playerStats[player.UserId].Inventory
+	table.insert(inventory, itemName)
+	print(player.Name .. " received: " .. itemName)
+end
+
+function InventoryModule:ListItems(player)
+	local inventory = playerStats[player.UserId].Inventory
+	for i, item in ipairs(inventory) do
+		print("Item " .. i .. ": " .. item)
+	end
+end
+
+--[[ Line 321 - 340 ]]--
+local function spawnCrate()
+	local crate = Instance.new("Part")
+	crate.Name = "MoneyCrate"
+	crate.Size = Vector3.new(2, 2, 2)
+	crate.Position = Vector3.new(math.random(-100,100), 5, math.random(-100,100))
+	crate.BrickColor = BrickColor.Random()
+	crate.Anchored = true
+	crate.Parent = workspace
+
+	local click = Instance.new("ClickDetector", crate)
+	click.MouseClick:Connect(function(player)
+		rewardPlayer(player, 50)
+		InventoryModule:AddItem(player, "Gold")
+		crate:Destroy()
+	end)
+end
+
+--[[ Line 341 - 360 ]]--
+while true do
+	wait(15)
+	spawnCrate()
+end
+
+--[[ Line 361 - 380 ]]--
+local function sparkleEffect(part)
+	local sparkle = Instance.new("Sparkles")
+	sparkle.SparkleColor = Color3.fromRGB(255, 105, 180)
+	sparkle.Parent = part
+	game:GetService("Debris"):AddItem(sparkle, 3)
+end
+
+--[[ Line 381 - 400 ]]--
+local function showVictory(player)
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "VictoryGUI"
+	gui.Parent = player:WaitForChild("PlayerGui")
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 0.1, 0)
+	label.Position = UDim2.new(0, 0, 0.45, 0)
+	label.Text = "YOU WIN!"
+	label.TextScaled = true
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.BackgroundTransparency = 1
+	label.Parent = gui
+
+	game:GetService("Debris"):AddItem(gui, 3)
+end
+
+--[[ Line 401 - 420 ]]--
+local function handleZoneEntry(player)
+	local tag = Instance.new("BoolValue")
+	tag.Name = "InBattleZone"
+	tag.Parent = player
+end
+
+local zone = Instance.new("Part")
+zone.Anchored = true
+zone.Size = Vector3.new(20, 1, 20)
+zone.Position = Vector3.new(0, 1, 0)
+zone.BrickColor = BrickColor.new("Really red")
+zone.Touched:Connect(function(hit)
+	local plr = Players:GetPlayerFromCharacter(hit.Parent)
+	if plr then
+		handleZoneEntry(plr)
+	end
+end)
+zone.Parent = workspace
+
+--[[ Line 421 - 440 ]]--
+local function knockbackTarget(target, direction)
+	if target:IsA("Humanoid") then
+		local force = Instance.new("BodyVelocity")
+		force.Velocity = direction * 50
+		force.MaxForce = Vector3.new(100000, 100000, 100000)
+		force.Parent = target.Parent.PrimaryPart
+		game:GetService("Debris"):AddItem(force, 0.2)
+	end
+end
+
+--[[ Line 441 - 460 ]]--
+local function onTouchDamage(part)
+	local hum = part.Parent:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum:TakeDamage(10)
+		sparkleEffect(part)
+	end
+end
+
+local spike = Instance.new("Part")
+spike.Anchored = true
+spike.Size = Vector3.new(3, 1, 3)
+spike.Position = Vector3.new(25, 1, 0)
+spike.Touched:Connect(onTouchDamage)
+spike.BrickColor = BrickColor.new("Black")
+spike.Parent = workspace
+
+--[[ Line 461 - 480 ]]--
+local function randomEvent()
+	local roll = math.random(1, 3)
+	if roll == 1 then
+		for _, player in pairs(Players:GetPlayers()) do
+			rewardPlayer(player, 100)
+		end
+	elseif roll == 2 then
+		for _, player in pairs(Players:GetPlayers()) do
+			damagePlayer(player, 25)
+		end
+	else
+		for _, player in pairs(Players:GetPlayers()) do
+			InventoryModule:AddItem(player, "LuckyCharm")
+		end
+	end
+end
+
+--[[ Line 481 - 500 ]]--
+game:GetService("RunService").Stepped:Connect(function()
+	if math.random() < 0.002 then
+		randomEvent()
+	end
+end)
+
+--[[ Line 501 - 520 ]]--
+local function createPopup(player, message)
+	local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0.5, 0, 0.1, 0)
+	label.Position = UDim2.new(0.25, 0, 0.1, 0)
+	label.Text = message
+	label.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextScaled = true
+	label.Parent = gui
+	game:GetService("Debris"):AddItem(gui, 3)
+end
+
+--[[ Line 521 - 540 ]]--
+local function handleLevelUp(player)
+	local stats = player:FindFirstChild("leaderstats")
+	if stats then
+		stats.Level.Value += 1
+		createPopup(player, "LEVEL UP!")
+	end
+end
+
+--[[ Line 541 - 560 ]]--
+local function fakeBossFight(player)
+	damagePlayer(player, math.random(10, 40))
+	wait(2)
+	if playerStats[player.UserId].Health > 0 then
+		rewardPlayer(player, 200)
+		handleLevelUp(player)
+		showVictory(player)
+	end
+end
+
+--[[ Line 561 - 580 ]]--
+local function onChatMessage(player, msg)
+	if msg == "!fight" then
+		fakeBossFight(player)
+	elseif msg == "!items" then
+		InventoryModule:ListItems(player)
+	elseif msg == "!heal" then
+		playerStats[player.UserId].Health = 100
+	end
+end
+
+game:GetService("ReplicatedStorage"):WaitForChild("ChatMessage").OnServerEvent:Connect(onChatMessage)
+
+--[[ Line 581 - 600 ]]--
+local function makeDance(part)
+	local tween = TweenService:Create(part, TweenInfo.new(1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true), {
+		Rotation = Vector3.new(0, 180, 0)
+	})
+	tween:Play()
+end
+
+for _, part in ipairs(workspace:GetDescendants()) do
+	if part:IsA("Part") and part.Name == "DanceBlock" then
+		makeDance(part)
+	end
+end
